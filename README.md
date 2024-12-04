@@ -265,3 +265,206 @@ Django utiliza aplicaciones para organizar funcionalidades. Se creará una aplic
 
 ---------------------------------------------------------------------
 ---------------------------------------------------------------------
+
+## Parte 3: Crear los Modelos para la Base de Datos en Django. ##
+
+### Objetivo: ###
+
+Definir las tablas principales para el juego usando modelos de Django y reflejar estos modelos en la base de datos MySQL.
+
+### Paso 1: Planificación de los modelos. ###
+
+Para organizar la estructura de datos del juego, se identificarán los elementos. Antes de utilizar los modelos que se crean en esta parte, se debe eliminar de la base de datos ciertos datos de la migración “admin” anterior ya que si no se hace se generará un error en el orden de la migración “game”.
+```
+mysql -u root -p
+USE fight_copy;
+DELETE FROM django_migrations WHERE app='admin';
+DROP TABLE IF EXISTS django_admin_log;
+```
+
+A continuación, se muestran algunos modelos básicos. Se puede ampliar la lista a medida que el juego crezca.
+
+1. Usuario: Información sobre cada usuario registrado en el juego.
+
+2. Personaje (Character): Detalles de cada personaje, como nivel, experiencia, vida, etc.
+
+3. Inventario: Una lista de objetos o equipo que cada personaje posee.
+
+4. Batalla (Battle): Registros de las batallas entre personajes.
+
+5. Objeto (Item): Definición de los objetos disponibles en el juego.
+
+### Paso 2: Crear el modelo de Usuario en models.py. ###
+
+Django ya incluye un sistema de autenticación de usuarios, se puede aprovechar esto y extender el modelo de usuario predeterminado de Django para agregar atributos específicos. Se dejará todo preparado para dicha modificación si es necesaria.
+
+1. Abrir models.py dentro de la carpeta game.
+
+2. Añadir el siguiente código para crear el modelo de Usuario personalizado:
+	```
+	from django.contrib.auth.models import AbstractUser
+	from django.db import models
+    	
+	class Usuario(AbstractUser):
+		# Se pueden agregar más atributos aquí según lo que se necesite para el juego #
+		pass
+	```
+
+3. Para que Django use este modelo de usuario personalizado, se abre settings.py y se añade esta línea:
+	```
+	AUTH_USER_MODEL = 'game.Usuario'
+	```
+	Esto le indica a Django que utilice el modelo Usuario que se creó en lugar del modelo de usuario predeterminado. También cabe aclarar que todos los modelos en DJango heredan los campos de su superclase, en este caso de AbstractUser que ya tiene campos adicionales.
+
+### Paso 3: Crear el modelo de Personaje (Character). ###
+
+Cada usuario puede tener un personaje asociado en el juego con sus propias estadísticas. Definir este modelo.
+
+* En models.py, añadir el modelo de Character:
+	```
+	class Character(models.Model):
+		usuario = models.OneToOneField('Usuario', on_delete=models.CASCADE, related_name='character')
+		nombre = models.CharField(max_length=50)
+		salud = models.IntegerField(default=100)
+		fuerza = models.IntegerField(default=10)
+		defensa = models.IntegerField(default=5)
+		nivel = models.IntegerField(default=1)
+		experiencia = models.IntegerField(default=0)
+		oro = models.IntegerField(default=100)
+	
+		def __str__(self):
+			return f"{self.nombre} (Nivel {self.nivel})"
+	```
+
+* usuario: Cada personaje pertenece a un usuario específico, y se usa una relación OneToOne para garantizar que cada usuario tenga un único personaje. El primer parámetro se puede declarar sin comillas pero al hacerlo se tiene que asegurar que el modelo mencionado exista con anterioridad, con las comillas se evita el predicamento haciendo que las modificaciones sean más dinámicas. Con ` related_name='character' ` se asegura la relación bidireccional entre Usuario y Character. 
+
+* Atributos de combate: salud, fuerza, defensa, nivel, experiencia representan las estadísticas y progreso del personaje.
+
+* También cabe aclarar que todos los modelos en DJango heredan los campos de su superclase, en este caso de models.Model que ya tiene campos adicionales (por ejemplo el campo id). 	
+
+### Paso 4: Crear el modelo de Objeto (Item). ###
+
+Los objetos son elementos que el personaje puede adquirir o equipar para mejorar sus estadísticas.
+
+* En models.py, añadir el modelo de Item:
+	```
+	class Item(models.Model):
+		nombre = models.CharField(max_length=100)
+		descripcion = models.TextField()
+		tipo = models.CharField(max_length=50)  # Ejemplo: "arma", "armadura"
+		bono_fuerza = models.IntegerField(default=0)
+		bono_defensa = models.IntegerField(default=0)
+		precio = models.IntegerField(default=50)
+		
+		def __str__(self):
+			return self.nombre
+	```
+	* tipo: Define el tipo de objeto (ej., arma o armadura).
+	* Bonos: bono_fuerza y bono_defensa indican cómo afecta este objeto las estadísticas del personaje.
+	* precio: Determina cuánto cuesta adquirir el objeto.
+
+### Paso 5: Crear el modelo de Inventario. ###
+
+* Cada personaje puede tener varios objetos en su inventario por lo cual el modelo tiene que poder permitir esta característica.
+
+* En models.py, añadir el modelo de Inventario:
+	```
+	class Inventario(models.Model):
+		personaje = models.ForeignKey('Character', on_delete=models.CASCADE)
+		item = models.ForeignKey(Item, on_delete=models.CASCADE)
+		cantidad = models.IntegerField(default=1)
+	
+		def __str__(self):
+			return f"{self.cantidad}x {self.item.nombre} para {self.personaje.nombre}"
+	```
+	* personaje: Indica a qué personaje pertenece este inventario.
+	* item: Define qué objeto está en el inventario.
+	* cantidad: Indica cuántos de ese objeto posee el personaje.
+
+### Paso 6: Crear el modelo de Batalla. ###
+
+Para registrar las batallas entre personajes, se crea un modelo que guarda los resultados de cada enfrentamiento.
+
+1. En models.py, añadir el modelo de Battle:
+	```
+	class Battle(models.Model):
+		atacante = models.ForeignKey('Character', related_name="batallas_atacante", null=True, blank=True, on_delete=models.SET_NULL)
+		defensor = models.ForeignKey('Character', related_name="batallas_defensor", null=True, blank=True, on_delete=models.SET_NULL)
+		ganador = models.ForeignKey('Character', related_name="batallas_ganador", null=True, blank=True, on_delete=models.SET_NULL)
+		fecha = models.DateTimeField(auto_now_add=True)
+		
+		def __str__(self):
+			return f"{self.atacante} vs {self.defensor} - Ganador: {self.ganador if self.ganador else 'Empate'}"
+	```
+	* atacante y defensor: Personajes que participan en la batalla(o pueden ser null si los personajes son borrados del sistema)
+	* ganador: Indica el personaje que ganó la batalla (o puede ser null si es un empate).
+	* fecha: Fecha y hora de la batalla.
+
+2. Crear signals.py dentro de la carpeta game y colocar el siguiente código:
+	```
+	from django.db.models.signals import post_delete
+	from django.dispatch import receiver
+	from .models import Battle, Character
+	
+	@receiver(post_delete, sender=Character)
+	def eliminar_batallas_sin_participantes(sender, instance, **kwargs):
+		# Busca batallas sin atacante ni defensor #
+		batallas_sin_participantes = Battle.objects.filter(atacante=None, defensor=None)
+		# Elimina esas batallas #
+		batallas_sin_participantes.delete()
+	```
+	* Este código es una señal que elimina registros de la tabla Battle sí tanto el atacante como el defensor son eliminados del sistema.
+
+3. En el archiv app.py de game colocar el siguiente código:
+	```
+	from django.apps import AppConfig
+	
+	class GameConfig(AppConfig):
+		default_auto_field = 'django.db.models.BigAutoField'
+		name = 'game'
+		
+		def ready(self):
+			import game.signals  # Importa las señales al cargar la aplicación
+	```
+	* El siguiente código enlaza la señal con la aplicación para su uso.
+
+### Paso 7: Crear y aplicar las migraciones. ###
+
+1. Ahora que se han definido los modelos, Django necesita crear las tablas correspondientes en MySQL. Primero, generar las migraciones ejecutando:
+	```
+	python manage.py makemigrations
+	```
+	Este comando crea los archivos de migración para los modelos que se acaban de definir.
+
+2. Luego, aplicar las migraciones a la base de datos:
+	```
+	python manage.py migrate
+	```
+	Esto creará las tablas en la base de datos MySQL basadas en los modelos definidos en models.py.
+
+### Paso 8: Verificar los modelos en el panel de administración de Django. ###
+
+Django incluye un panel de administración que facilita ver y gestionar los datos.
+
+1. En admin.py dentro de la carpeta game, registrar los modelos para que se muestren en el panel de administración:
+	```
+	from django.contrib import admin
+	from .models import Usuario, Character, Item, Inventario, Battle
+	
+	admin.site.register(Usuario)
+	admin.site.register(Character)
+	admin.site.register(Item)
+	admin.site.register(Inventario)
+	admin.site.register(Battle)
+	```
+
+2. Crear un superusuario para acceder al panel de administración:
+	```
+	python manage.py createsuperuser
+	```
+	Seguir las indicaciones para configurar el nombre de usuario, correo electrónico y contraseña.
+
+3. Iniciar el servidor ` python manage.py runserver ` de desarrollo y acceder al panel de administración en http://127.0.0.1:8000/admin. Iniciar sesión con el superusuario y revisar los modelos registrados en el panel de administración.
+
+---------------------------------------------------------------------
+---------------------------------------------------------------------
