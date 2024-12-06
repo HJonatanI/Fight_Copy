@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>{{ personaje.nombre }} VS {{ enemigo.nombre }}</title>
+</head>
+<body>
+	<!-- batalla.html -->
+	<h1>Batalla entre {{ personaje.nombre }} y {{ enemigo.nombre }}</h1>
+	<p>Resultado: {{ resultado }}</p>
+	{% if resultado == 'victoria' %}
+		<p>¡Has ganado! Experiencia y oro aumentados.</p>
+	{% else %}
+		<p>Has sido derrotado.</p>
+	{% endif %}
+	<a href="{% url 'perfil_personaje' %}">Volver al Perfil</a>
+</body>
+</html>

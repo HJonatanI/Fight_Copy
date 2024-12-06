@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Inventario de {{ personaje.nombre }}</title>
+</head>
+<body>
+	<!-- inventario.html -->
+	<h1>Inventario de {{ personaje.nombre }}</h1>
+	<ul>
+		{% for item in inventario %}
+			<li>{{ item.cantidad }}x {{ item.item.nombre }} ({{ item.item.descripcion }})</li>
+		{% endfor %}
+	</ul>
+	<a href="{% url 'perfil_personaje' %}">Volver al Perfil</a>
+</body>
+</html>
