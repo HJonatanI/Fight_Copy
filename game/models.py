@@ -15,10 +15,21 @@ class Character(models.Model):
 	defensa = models.IntegerField(default=5)
 	nivel = models.IntegerField(default=1)
 	experiencia = models.IntegerField(default=0)
+	experiencia_necesaria = models.IntegerField(default=100)
 	oro = models.IntegerField(default=100)
 	
 	def __str__(self):
 		return f"{self.nombre} (Nivel {self.nivel})"
+
+	def subir_nivel(self):
+		if self.experiencia >= self.experiencia_necesaria:
+			self.nivel += 1
+			self.experiencia -= self.experiencia_necesaria
+			self.experiencia_necesaria += 50  # Incrementa la experiencia necesaria en cada nivel
+			self.salud += 10  # Aumenta la salud
+			self.fuerza += 2  # Aumenta la fuerza
+			self.defensa += 1  # Aumenta la defensa
+			self.save()
 
 class Item(models.Model):
 	nombre = models.CharField(max_length=100)

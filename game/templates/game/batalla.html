@@ -6,13 +6,21 @@
 	<title>{{ personaje.nombre }} VS {{ enemigo.nombre }}</title>
 </head>
 <body>
-	<!-- batalla.html -->
 	<h1>Batalla entre {{ personaje.nombre }} y {{ enemigo.nombre }}</h1>
-	<p>Resultado: {{ resultado }}</p>
+	<p><strong>Resultado:</strong> {{ resultado }}</p>
+	<h2>Registro de Combate</h2> 
+	<ul> {% for evento in log_combate %} 
+		<li>{{ evento }}</li> 
+	{% endfor %} </ul>
+	<h2>Estado Final del Combate</h2>
+	<p>{{ personaje.nombre }} - Salud: {{ personaje.salud }} | Fuerza: {{ personaje.fuerza }} | Defensa: {{ personaje.defensa }} | Nivel: {{ personaje.nivel }}</p>
+	<p>{{ enemigo.nombre }} - Salud: {{ enemigo.salud }} | Fuerza: {{ enemigo.fuerza }} | Defensa: {{ enemigo.defensa }}</p>
 	{% if resultado == 'victoria' %}
-		<p>¡Has ganado! Experiencia y oro aumentados.</p>
+		<p>¡Has ganado! Experiencia ganada: 20 puntos. Oro ganado: 10.</p>
+		<p>Nueva Experiencia: {{ personaje.experiencia }} / {{ personaje.experiencia_necesaria }}</p>
+		<p>Nivel: {{ personaje.nivel }}</p>
 	{% else %}
-		<p>Has sido derrotado.</p>
+		<p>Has sido derrotado. Vuelve a intentarlo.</p>
 	{% endif %}
 	<a href="{% url 'perfil_personaje' %}">Volver al Perfil</a>
 </body>
