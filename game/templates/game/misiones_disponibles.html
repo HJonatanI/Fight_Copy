@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Misiones Disponibles</title>
+</head>
+<body>
+	<h1>Misiones Disponibles</h1>
+    <ul>{% for mision in misiones %}
+        {% if not mision in misiones_activas_completas %}
+            <li>
+                <h3>{{ mision.nombre }}</h3>
+                <p>{{ mision.descripcion }}</p>
+                <p>Recompensa: {{ mision.recompensa_experiencia }} experiencia, {{ mision.recompensa_oro }} oro</p>
+                {% if not mision in misiones_activas %}
+                    <a href="{% url 'aceptar_mision' mision.id %}">Aceptar Misión</a>
+                {% else %}
+                    <a href="{% url 'completar_mision' mision.id %}">Completar Misión</a>
+                {% endif %}
+            </li>
+        {% endif %}
+    {% endfor %}</ul>
+    <hr>
+    <a href="{% url 'perfil_personaje' %}">Volver al perfil</a>
+</body>
+</html>

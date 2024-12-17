@@ -826,3 +826,169 @@ Se actualizará la plantilla batalla.html para mostrar más detalles sobre la ba
 
 ---------------------------------------------------------------------
 ---------------------------------------------------------------------
+
+## Parte 6: Implementación del Sistema de Misiones. ##
+
+### Objetivo: ###
+
+* Crear un modelo de "Misión" para definir tareas que el jugador puede completar.
+
+* Implementar la lógica para que el jugador pueda aceptar, completar y recibir recompensas por misiones.
+
+* Mejorar las plantillas para mostrar las misiones disponibles, el progreso de las misiones activas y las recompensas obtenidas.
+
+### Paso 1: Crear el Modelo de Misión. ###
+
+En primer lugar, definiremos un nuevo modelo en Django para representar las misiones en el juego.
+
+* Abre models.py en la aplicación game y añade el siguiente código:
+	```
+	from django.db import models
+	from django.contrib.auth.models import User
+	
+	class Mision(models.Model):
+		nombre = models.CharField(max_length=100)
+		descripcion = models.TextField()
+		recompensa_experiencia = models.IntegerField()
+		recompensa_oro = models.IntegerField()
+		completada = models.BooleanField(default=False)
+	
+	def __str__(self):
+		return self.nombre
+	
+	class MisionActiva(models.Model):
+		usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE)
+		mision = models.ForeignKey('Mision', on_delete=models.CASCADE)
+		progreso = models.IntegerField(default=0)
+		completada = models.BooleanField(default=False)
+	
+	def __str__(self):
+		return f"{self.usuario.username} - {self.mision.nombre}"
+	```
+#### Explicación del Código: ####
+
+* Mision define las características básicas de una misión: el nombre, la descripción y las recompensas (experiencia y oro).
+* MisiónActiva asocia una misión con un jugador (`usuario`) y almacena su progreso y estado de completitud. 
+* Ejecuta las migraciones para actualizar la base de datos con los nuevos modelos:
+	```
+	python manage.py makemigrations
+	python manage.py migrate
+	```
+
+### Paso 2: Crear Misiones Iniciales en el Panel de Administración. ###
+
+Ahora que tenemos el modelo de Mision, vamos a crear algunas misiones iniciales.
+
+1. En admin.py, añade los nuevos modelos para poder gestionarlos desde el panel de administración:
+	```
+	from django.contrib import admin
+	from .models import Mision, MisionActiva
+	
+	admin.site.register(Mision)
+	admin.site.register(MisionActiva)
+	``` 
+
+2. Ve al panel de administración de Django en http://127.0.0.1:8000/admin, y añade algunas misiones de prueba con diferentes recompensas.
+
+### Paso 3: Crear Vistas para las Misiones. ###
+
+Ahora, crearemos las vistas que permitirán al usuario ver las misiones disponibles, aceptar una misión, y completar misiones para obtener recompensas.
+
+* En views.py, añade la lógica para las misiones:
+	```
+	from django.shortcuts import render, get_object_or_404, redirect
+	from .models import Mision, MisionActiva
+	from django.contrib.auth.decorators import login_required
+	
+	@login_required
+	def misiones_disponibles(request):
+		misiones = Mision.objects.all()  # Trae todas las misiones
+		misiones_activas = Mision.objects.filter(misionactiva__usuario=request.user)
+		misiones_activas_completas = Mision.objects.filter(misionactiva__usuario=request.user, misionactiva__completada=True)
+		return render(request, 'game/misiones_disponibles.html', {'misiones': misiones, 'misiones_activas': misiones_activas, 'misiones_activas_completas': misiones_activas_completas})
+	
+	@login_required
+	def aceptar_mision(request, mision_id):
+		mision = get_object_or_404(Mision, id=mision_id)
+		MisionActiva.objects.get_or_create(usuario=request.user, mision=mision)
+		return redirect('misiones_disponibles')
+	
+	@login_required
+	def completar_mision(request, mision_activa_id):
+		mision = get_object_or_404(Mision, id=mision_id)
+    	# Obtener la misión activa asociada al usuario y la misión
+		mision_activa = get_object_or_404(MisionActiva, mision=mision, usuario=request.user)
+		if not mision_activa.completada:
+			# Marcar la misión como completada y otorgar recompensas #
+			personaje = get_object_or_404(Character, usuario=request.user)
+			personaje.experiencia += mision_activa.mision.recompensa_experiencia
+			personaje.oro += mision_activa.mision.recompensa_oro
+			personaje.save()
+			mision_activa.completada = True
+			mision_activa.save()
+			return redirect('misiones_disponibles')
+		else:
+			return redirect('misiones_disponibles')
+	```
+#### Explicación del Código: ####
+
+* misiones_disponibles: Muestra las misiones que el jugador puede aceptar.
+* aceptar_mision: Permite que el jugador acepte una misión disponible.
+* completar_mision: Marca una misión como completada y otorga al jugador las recompensas de experiencia y oro.
+
+### Paso 4: Crear Plantillas para las Misiones. ###
+
+Para que el usuario pueda interactuar con las misiones, vamos a crear las plantillas misiones_disponibles.html y perfil_personaje.html en la carpeta templates/game.
+
+1. En templates/game/misiones_disponibles.html, añade el siguiente código:
+	```
+	<h1>Misiones Disponibles</h1>
+    <ul>{% for mision in misiones %}
+        {% if not mision in misiones_activas_completas %}
+            <li>
+                <h3>{{ mision.nombre }}</h3>
+                <p>{{ mision.descripcion }}</p>
+                <p>Recompensa: {{ mision.recompensa_experiencia }} experiencia, {{ mision.recompensa_oro }} oro</p>
+                {% if not mision in misiones_activas %}
+                    <a href="{% url 'aceptar_mision' mision.id %}">Aceptar Misión</a>
+                {% else %}
+                    <a href="{% url 'completar_mision' mision.id %}">Completar Misión</a>
+                {% endif %}
+            </li>
+        {% endif %}
+    {% endfor %}</ul>
+    <hr>
+    <a href="{% url 'perfil_personaje' %}">Volver al perfil</a>
+	```
+
+2. En urls.py, añade las rutas para estas vistas de misiones:
+	```
+	from django.urls import path
+	from . import views
+	
+	urlpatterns = [
+		path('misiones/', views.misiones_disponibles, name='misiones_disponibles'),
+		path('misiones/aceptar/<int:mision_id>/', views.aceptar_mision, name='aceptar_mision'),
+		path('misiones/completar/<int:mision_id>/', views.completar_mision, name='completar_mision'),
+		path('perfil/', views.perfil_personaje, name='perfil_personaje'),
+	]
+	```
+
+3. Paso extra, agregar el enlace a las misiones en perfil.html:
+	```
+	<a href="{% url 'misiones_disponibles' %}">Misiones</a>
+	```
+
+### Paso 5: Probar el Sistema de Misiones. ###
+
+1. Ejecuta el Servidor y navega a la página de misiones en http://127.0.0.1:8000/game/misiones/.
+
+2. Prueba el flujo:
+	* Acepta una misión haciendo clic en "Aceptar Misión".
+	* Una vez aceptada, vuelve a la lista de misiones, y ahora verás la opción "Completar Misión".
+	* Completa la misión para recibir las recompensas de experiencia y oro.
+	* Navega al perfil del personaje para ver si la experiencia y el oro se han actualizado correctamente.
+
+---------------------------------------------------------------------
+---------------------------------------------------------------------
+

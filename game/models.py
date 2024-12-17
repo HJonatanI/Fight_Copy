@@ -60,3 +60,21 @@ class Battle(models.Model):
 	def __str__(self):
 		return f"{self.atacante} vs {self.defensor} - Ganador: {self.ganador if self.ganador else 'Empate'}"
 
+class Mision(models.Model):
+	nombre = models.CharField(max_length=100)
+	descripcion = models.TextField()
+	recompensa_experiencia = models.IntegerField()
+	recompensa_oro = models.IntegerField()
+	completada = models.BooleanField(default=False)
+	
+	def __str__(self):
+		return self.nombre
+	
+class MisionActiva(models.Model):
+	usuario = models.ForeignKey('Usuario', on_delete=models.CASCADE)
+	mision = models.ForeignKey('Mision', on_delete=models.CASCADE)
+	progreso = models.IntegerField(default=0)
+	completada = models.BooleanField(default=False)
+
+	def __str__(self):
+		return f"{self.usuario.username} - {self.mision.nombre}"

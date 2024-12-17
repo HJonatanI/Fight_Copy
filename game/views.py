@@ -1,6 +1,6 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from .models import Character, Inventario
+from .models import Character, Inventario, Mision, MisionActiva
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 import random
@@ -65,3 +65,34 @@ def batalla(request):
 		})
 	else:
 		return HttpResponseRedirect(reverse('perfil_personaje'))
+	
+@login_required
+def misiones_disponibles(request):
+	misiones = Mision.objects.all()  # Trae todas las misiones
+	misiones_activas = Mision.objects.filter(misionactiva__usuario=request.user)
+	misiones_activas_completas = Mision.objects.filter(misionactiva__usuario=request.user, misionactiva__completada=True)
+	return render(request, 'game/misiones_disponibles.html', {'misiones': misiones, 'misiones_activas': misiones_activas, 'misiones_activas_completas': misiones_activas_completas})
+	
+@login_required
+def aceptar_mision(request, mision_id):
+	mision = get_object_or_404(Mision, id=mision_id)
+	MisionActiva.objects.get_or_create(usuario=request.user, mision=mision)
+	return redirect('misiones_disponibles')
+	
+@login_required
+def completar_mision(request, mision_id):
+	mision = get_object_or_404(Mision, id=mision_id)
+    # Obtener la misión activa asociada al usuario y la misión
+	mision_activa = get_object_or_404(MisionActiva, mision=mision, usuario=request.user)
+	if not mision_activa.completada:
+		# Marcar la misión como completada y otorgar recompensas #
+		personaje = get_object_or_404(Character, usuario=request.user)
+		personaje.experiencia += mision_activa.mision.recompensa_experiencia
+		personaje.oro += mision_activa.mision.recompensa_oro
+		personaje.save()
+		mision_activa.completada = True
+		mision_activa.save()
+		return redirect('misiones_disponibles')
+	else:
+		return redirect('misiones_disponibles')
+
